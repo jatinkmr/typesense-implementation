@@ -55,6 +55,8 @@ export default function Form() {
 
             {loading && <div style={{ marginTop: 10 }}>Searching...</div>}
 
+            {!loading && !results.length && query && <div style={{ marginTop: 10, color: 'darkred'}}>No results found.</div>}
+
             <ul style={{ marginTop: 12 }}>
                 {results.map((r) => (
                     <li key={r.id} style={{ padding: '6px 0', borderBottom: '1px solid #eee' }}>

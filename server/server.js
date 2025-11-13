@@ -30,10 +30,12 @@ app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Search endpoint: GET /api/search?q=term
 app.get('/api/search', async (req, res) => {
-    const q = req.query.q || '';
-    if (!q) return res.json({ hits: [] });
-
     try {
+        if (!typesenseClient) throw new Error('Typesense client not initialized');
+
+        const q = req.query.q || '';
+        if (!q) return res.json({ hits: [] });
+
         const searchParameters = {
             q,
             query_by: 'title,description',
@@ -46,16 +48,25 @@ app.get('/api/search', async (req, res) => {
             .search(searchParameters);
 
         // return documents only for simplicity
-        const docs = (results.hits || []).map((h) => h.document);
+        const docs = results?.hits?.length ? results.hits.map((h) => h.document) : [];
         res.json({ hits: docs });
     } catch (err) {
-        console.error('Search error:', err.message || err);
-        res.status(500).json({ error: err.message || String(err) });
-    }
-});
+        const errMessage = err?.message || '';
+        const isConnectionError =
+            err?.code === 'ECONNREFUSED' ||
+            errMessage.includes('ECONNREFUSED') ||
+            errMessage.includes('Connection refused');
 
-app.post('/api/seed', async (req, res) => {
-    res.status(405).json({ error: 'Run the seed script manually: node server/seed_typesense.js' });
+        if (isConnectionError) {
+            console.error('Typesense connection error:', errMessage || err);
+            return res
+                .status(503)
+                .json({ error: 'Failed to connect to Typesense search service.' })
+        }
+
+        console.error('Search error:', errMessage || err);
+        res.status(500).json({ error: errMessage || 'An unexpected error occurred during search.' });
+    }
 });
 
 app.listen(BE_PORT, () => console.log(`Server is running on port ${BE_PORT}`));
